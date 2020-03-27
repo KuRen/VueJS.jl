@@ -223,7 +223,8 @@ function std_events!(vs::VueStruct, new_es::Vector{EventHandler})
     setcookie : function(name, value, days) {
         var d = new Date;
         d.setTime(d.getTime() + 24*60*60*1000*days);
-        document.cookie = name + "=" + value + ";path=/;expires=" + d.toGMTString();
+        maxage = days*86400;
+        document.cookie = name + "=" + value + ";path=/;max-age="+maxage+";expires=" + d.toGMTString();
     }
     """
     push!(new_es,StdEventHandler("methods","setcookie","",function_script))
