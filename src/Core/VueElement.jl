@@ -35,6 +35,7 @@ mutable struct VueElement
     style::Vector{String}
     template::Bool
     child
+    events::Dict{String, Any}
 end
 
 """
@@ -62,10 +63,19 @@ function VueElement(id::String, tag::String, attrs::Dict)
     else
        cols=nothing
     end
- 
-    vuel=VueElement(id,tag,attrs,"",Dict(), "value", Dict(), slots, cols,nothing,[],false,nothing)
+
+    events = get(attrs, "events", Dict{String, Vector}())
+    delete!(attrs, "events")
+    for (k,v) in attrs
+        if k in vcat(KNOWN_HOOKS, KNOWN_EVT_PROPS)
+            merge!(events, Dict(k=>v))
+            delete!(attrs, k)
+        end
+    end
+
+    vuel=VueElement(id,tag,attrs,"",Dict(), "value", Dict(), slots, cols,nothing,[],false,nothing, events)
     update_validate!(vuel)
-    
+
     ## Slots
     if length(vuel.slots)!=0
         child=[]
@@ -74,7 +84,7 @@ function VueElement(id::String, tag::String, attrs::Dict)
         end
         vuel.child=child
     end
-    
+
     return vuel
 end
 
@@ -86,7 +96,7 @@ function update_validate!(vuel::VueElement)
     if haskey(UPDATE_VALIDATION, tag)
         UPDATE_VALIDATION[tag](vuel)
     end
-    
+
     ## Binding
     for (k,v) in vuel.attrs
        ## Bindig of non html accepted values => Arrays/Dicts
@@ -121,9 +131,9 @@ macro el(varname,tag,args...)
 
     @assert varname isa Symbol "1st arg should be Variable name"
     tag_type=typeof(tag)
-    
+
     @assert tag_type in [String,Symbol] "2nd arg should be tag name or accepted Struct"
-    
+
         newargs=[]
         for r in (args)
            @assert r.head==:(=) "You should input args with = indication e.g. a=1"
@@ -143,18 +153,18 @@ macro el(varname,tag,args...)
             end
         end
         newargs="Dict($(join(newargs,",")))"
-    
+
     ## Special Building Condition (EChart)
     if tag_type==Symbol
-        
+
         newexpr=(Meta.parse("""VueElement("$(string(varname))",$(tag),$newargs)"""))
         return quote
             $(esc(varname))=$(esc(newexpr))
         end
-        
-    ## Normal condition    
-    elseif tag_type==String 
-        
+
+    ## Normal condition
+    elseif tag_type==String
+
         newexpr=(Meta.parse("""VueElement("$(string(varname))","$(string(tag))",$newargs)"""))
         return quote
             $(esc(varname))=$(esc(newexpr))
