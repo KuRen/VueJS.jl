@@ -1,5 +1,5 @@
 abstract type EventHandler end
-    
+
 mutable struct CustomEventHandler <:EventHandler
 
     kind::String
@@ -8,7 +8,12 @@ mutable struct CustomEventHandler <:EventHandler
     script::String
     path::String
     function_script::String
+    props::Dict
 
+end
+
+function CustomEventHandler(kind::String, id::String, args::Vector, script::String)
+    return CustomEventHandler(kind, id, args, script, "","", Dict())
 end
 
 mutable struct StdEventHandler <:EventHandler
@@ -31,7 +36,7 @@ mutable struct VueStruct
     events::Vector{EventHandler}
     render_func::Union{Nothing,Function}
     styles::Dict{String,String}
-        
+
 end
 
 function VueStruct(
@@ -53,6 +58,11 @@ function VueStruct(
     update_styles!(styles,garr)
     scope=[]
     garr=element_path(garr,scope)
+
+    el_evts = element_evts(garr)
+    hooks = filter(x->x.kind in KNOWN_HOOKS, el_evts) #hooks will be used to remove duplicate events
+    events = vcat(events, el_evts)
+
     comp=VueStruct(id,garr,trf_binds(binds),cols,data,Dict{String,Any}(),events,nothing,styles)
     element_binds!(comp,binds=comp.binds)
     update_data!(comp,data)
@@ -60,9 +70,9 @@ function VueStruct(
     update_events!(comp,new_es)
     std_events!(comp,new_es)
     sort!(new_es,by=x->length(x.path),rev=false)
-    comp.events=unique(x->x.id,new_es)
-    function_script!.(comp.events)   
-    
+    comp.events = unique_events(new_es, hooks)
+    function_script!.(comp.events)
+
     ## Cols
     m_cols=garr isa Array ? maximum(max_cols.(dom(garr))) : maximum(max_cols(dom(garr)))
     m_cols>12 ? m_cols=12 : nothing
@@ -76,7 +86,7 @@ function element_path(v::VueHolder,scope::Array)
     v.elements=deepcopy(element_path(v.elements,scope))
     return v
 end
-    
+
 function element_path(arr::Array,scope::Array)
 
     new_arr=deepcopy(arr)
@@ -87,7 +97,7 @@ function element_path(arr::Array,scope::Array)
         ## Vue Element
         if typeof(r)==VueElement
             new_arr[i].path=scope_str
-    
+
         ## VueStruct
         elseif r isa VueStruct
 
@@ -110,9 +120,9 @@ function element_path(arr::Array,scope::Array)
                 end
             end
         new_arr[i].binds=new_binds
-        
+
         ## VueHolder
-        elseif r isa VueHolder    
+        elseif r isa VueHolder
             new_arr[i]=element_path(r,scope)
         ## Array Elements/Components
         elseif r isa Array
@@ -136,14 +146,21 @@ function update_events!(vs::VueStruct,new_es::Vector{EventHandler},scope="")
     map(x->x.path=scope,events)
     append!(new_es,events)
     update_events!(vs.grid,new_es,scope)
+end
 
+function unique_events(new_es::Vector{T} where T <: EventHandler, hooks)
+    es_methods = unique(x->x.id, filter(x->x.kind == "methods", new_es))
+    es_computed = unique(x->x.id, filter(x->x.kind == "computed", new_es))
+    es_watched = unique(x->x.id, filter(x->x.kind == "watch", new_es))
+    es_hooks = filter(x->x.kind in KNOWN_HOOKS, new_es)[1:size(hooks,1)]
+    return vcat(es_methods, es_computed, es_watched, es_hooks)
 end
 
 update_styles!(st_dict::Dict,v)=nothing
 update_styles!(st_dict::Dict,a::Array)=map(x->update_styles!(st_dict,x),a)
 update_styles!(st_dict::Dict,v::VueHolder)=map(x->update_styles!(st_dict,x),v.elements)
 function update_styles!(st_dict::Dict,vs::VueStruct)
-   merge!(st_dict,vs.styles) 
+   merge!(st_dict,vs.styles)
 end
 
 function update_styles!(st_dict::Dict,v::VueElement)
