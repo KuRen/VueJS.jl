@@ -60,7 +60,7 @@ function VueStruct(
     garr=element_path(garr,scope)
 
     el_evts = element_evts(garr)
-    hooks = filter(x->x.kind in KNOWN_HOOKS, el_evts) #hooks will be used to remove duplicate events
+    hooks = filter(x->x.kind in KNOWN_HOOKS, el_evts) #hooks will be used to remove duplicate hooks
     events = vcat(events, el_evts)
 
     comp=VueStruct(id,garr,trf_binds(binds),cols,data,Dict{String,Any}(),events,nothing,styles)

@@ -60,7 +60,7 @@ function function_script!(eh::CustomEventHandler)
                       $(eh.script)
                     }""",
                 "@path@"=>"app_state.")
-                
+
         elseif eh.kind == "computed"
             str = """$(eh.id) : function($args) {
                 $(eh.script)
@@ -164,7 +164,6 @@ function std_events!(vs::VueStruct, new_es::Vector{EventHandler})
     value_script=replace(JSON.json(get_json_attr(vs.def_data,"value")),"\""=>"")
     function_script="""submit : function(context, url, method, async, success, error) {
         var ret=$value_script
-        $(js_closure(scope="app"))
 
         var search = function(obj, arr) {
             let result = {};
